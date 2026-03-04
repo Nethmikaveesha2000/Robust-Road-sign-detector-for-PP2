@@ -1,0 +1,163 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>No Detection - Robust Road Sign Detection</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --text: rgba(255,255,255,0.92);
+        --muted: rgba(255,255,255,0.65);
+        --border: rgba(255,255,255,0.10);
+        --red: #ff4d4f;
+        --orange: #ffa940;
+        --green: #2ecc71;
+        --blue: #4da3ff;
+        --purple: #b37feb;
+        --slate: rgba(255,255,255,0.85);
+      }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        min-height: 100vh;
+      }
+      .logo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 32px;
+        margin-bottom: 12px;
+      }
+      .logo img {
+        height: 80px;
+        width: auto;
+      }
+      .container {
+        max-width: 500px;
+        margin: 20px auto 60px auto;
+        background: rgba(255,255,255,0.04);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        border-radius: 16px;
+        padding: 32px 28px 24px 28px;
+        border: 1px solid var(--border);
+        backdrop-filter: blur(10px);
+        text-align: center;
+      }
+      h2 {
+        color: var(--slate);
+        margin-bottom: 24px;
+        font-size: 2rem;
+        font-weight: 600;
+      }
+      .no-detection-icon {
+        font-size: 4rem;
+        margin-bottom: 20px;
+      }
+      .no-detection-message {
+        color: var(--muted);
+        font-size: 1.1rem;
+        margin-bottom: 30px;
+        line-height: 1.6;
+      }
+      .suggestions {
+        background: rgba(0,0,0,0.2);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        text-align: left;
+      }
+      .suggestions h4 {
+        color: var(--slate);
+        margin: 0 0 12px 0;
+        font-size: 1rem;
+      }
+      .suggestions ul {
+        margin: 0;
+        padding-left: 20px;
+        color: var(--muted);
+      }
+      .suggestions li {
+        margin-bottom: 8px;
+      }
+      .button-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      button, a.button {
+        background: var(--blue);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 24px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        text-decoration: none;
+        display: block;
+      }
+      button:hover, a.button:hover {
+        background: var(--orange);
+      }
+      a.button.secondary {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      a.button.secondary:hover {
+        background: rgba(255,255,255,0.1);
+      }
+      .warning-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: rgba(255, 169, 64, 0.15);
+        border: 1px solid rgba(255, 169, 64, 0.3);
+        border-radius: 20px;
+        color: var(--orange);
+        font-size: 0.9rem;
+        margin-bottom: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logo">
+      <img src="https://static.wixstatic.com/media/f1a669_7810771f71194aaea024fdd8b6dd0f84~mv2.png/v1/fill/w_368,h_122,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/BusMate-logo.png" alt="Logo" />
+    </div>
+    
+    <div class="container">
+      <div class="no-detection-icon">🔍</div>
+      <h2>No Road Signs Detected</h2>
+      
+      <div class="warning-badge">
+        ⚠️ Detection Failed
+      </div>
+      
+      <p class="no-detection-message">
+        We couldn't detect any road signs in the uploaded file. This could happen for various reasons.
+      </p>
+      
+      <div class="suggestions">
+        <h4>💡 Suggestions:</h4>
+        <ul>
+          <li>Make sure the image contains visible road signs</li>
+          <li>Try using a clearer or higher resolution image</li>
+          <li>Ensure the road sign is not too small in the frame</li>
+          <li>Check if the image has good lighting conditions</li>
+          <li>Avoid heavily blurred or distorted images</li>
+        </ul>
+      </div>
+      
+      <div class="button-group">
+        <a href="{{ url_for('upload') }}?input_type=image" class="button">📸 Try Another Image</a>
+        <a href="{{ url_for('upload') }}?input_type=video" class="button">🎥 Try a Video</a>
+        <a href="{{ url_for('index') }}" class="button secondary">← Back to Home</a>
+      </div>
+    </div>
+  </body>
+</html>

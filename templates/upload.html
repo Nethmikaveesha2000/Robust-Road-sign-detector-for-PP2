@@ -1,0 +1,256 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Upload - Robust Road Sign Detection</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --text: rgba(255,255,255,0.92);
+        --muted: rgba(255,255,255,0.65);
+        --border: rgba(255,255,255,0.10);
+        --red: #ff4d4f;
+        --orange: #ffa940;
+        --green: #2ecc71;
+        --blue: #4da3ff;
+        --purple: #b37feb;
+        --slate: rgba(255,255,255,0.85);
+      }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        min-height: 100vh;
+      }
+      .logo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 32px;
+        margin-bottom: 12px;
+      }
+      .logo img {
+        height: 80px;
+        width: auto;
+      }
+      .container {
+        max-width: 500px;
+        margin: 20px auto 60px auto;
+        background: rgba(255,255,255,0.04);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        border-radius: 16px;
+        padding: 32px 28px 24px 28px;
+        border: 1px solid var(--border);
+        backdrop-filter: blur(10px);
+        text-align: center;
+      }
+      h2 {
+        color: var(--slate);
+        margin-bottom: 24px;
+        font-size: 2rem;
+        font-weight: 600;
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .file-input-wrapper {
+        position: relative;
+        border: 2px dashed var(--border);
+        border-radius: 12px;
+        padding: 40px 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: rgba(0,0,0,0.18);
+      }
+      .file-input-wrapper:hover {
+        border-color: var(--blue);
+        background: rgba(77, 163, 255, 0.05);
+      }
+      .file-input-wrapper.dragover {
+        border-color: var(--green);
+        background: rgba(46, 204, 113, 0.1);
+      }
+      .file-input-wrapper input[type=file] {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+      }
+      .file-input-text {
+        color: var(--muted);
+        font-size: 1rem;
+      }
+      .file-input-text .icon {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        display: block;
+      }
+      .file-name {
+        color: var(--green);
+        font-weight: 500;
+        margin-top: 10px;
+        font-size: 0.9rem;
+        word-break: break-all;
+      }
+      .preview-container {
+        margin-top: 15px;
+        display: none;
+      }
+      .preview-container img,
+      .preview-container video {
+        max-width: 100%;
+        max-height: 200px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+      button {
+        background: var(--blue);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 14px;
+        font-size: 1.1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      }
+      button:hover {
+        background: var(--orange);
+      }
+      button:disabled {
+        background: var(--muted);
+        cursor: not-allowed;
+      }
+      .back-link {
+        display: inline-block;
+        margin-top: 20px;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: color 0.2s;
+      }
+      .back-link:hover {
+        color: var(--blue);
+      }
+      .input-type-badge {
+        display: inline-block;
+        padding: 6px 16px;
+        background: var(--blue);
+        color: #fff;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        margin-bottom: 20px;
+      }
+      .alert {
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(239,68,68,0.35);
+        background: rgba(239,68,68,0.10);
+        color: rgba(255,255,255,0.95);
+        font-size: 13px;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logo">
+      <img src="https://static.wixstatic.com/media/f1a669_7810771f71194aaea024fdd8b6dd0f84~mv2.png/v1/fill/w_368,h_122,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/BusMate-logo.png" alt="Logo" />
+    </div>
+    <div class="container">
+      <h2>Robust Road Sign Detection</h2>
+      
+      {% set input_type = request.args.get('input_type', 'image') %}
+      <div class="input-type-badge">
+        {% if input_type == 'image' %}📸 Image Upload{% elif input_type == 'video' %}🎥 Video Upload{% else %}📷 File Upload{% endif %}
+      </div>
+      
+      <form method="post" enctype="multipart/form-data" id="uploadForm">
+        <input type="hidden" name="input_type" value="{{ input_type }}">
+        
+        <div class="file-input-wrapper" id="dropZone">
+          <input type="file" name="file" id="fileInput" 
+                 accept="{% if input_type == 'image' %}image/*{% elif input_type == 'video' %}video/*{% else %}image/*,video/*{% endif %}" 
+                 required />
+          <div class="file-input-text">
+            <span class="icon">{% if input_type == 'image' %}📸{% elif input_type == 'video' %}🎥{% else %}📁{% endif %}</span>
+            <span>Drag & drop or click to select {% if input_type == 'image' %}an image{% elif input_type == 'video' %}a video{% else %}a file{% endif %}</span>
+          </div>
+          <div class="file-name" id="fileName"></div>
+          <div class="preview-container" id="previewContainer">
+            <img id="imagePreview" style="display: none;" />
+            <video id="videoPreview" style="display: none;" controls></video>
+          </div>
+        </div>
+        
+        <div class="alert" id="errorAlert"></div>
+        
+        <button type="submit" id="submitBtn" disabled>
+          🔍 Process & Analyze
+        </button>
+      </form>
+      
+      <a href="{{ url_for('index') }}" class="back-link">← Back to Home</a>
+    </div>
+    
+    <script>
+      const fileInput = document.getElementById('fileInput');
+      const fileName = document.getElementById('fileName');
+      const previewContainer = document.getElementById('previewContainer');
+      const imagePreview = document.getElementById('imagePreview');
+      const videoPreview = document.getElementById('videoPreview');
+      const submitBtn = document.getElementById('submitBtn');
+      const dropZone = document.getElementById('dropZone');
+      const inputType = '{{ input_type }}';
+      
+      fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          fileName.textContent = file.name;
+          submitBtn.disabled = false;
+          
+          // Show preview
+          previewContainer.style.display = 'block';
+          const fileURL = URL.createObjectURL(file);
+          
+          if (file.type.startsWith('image/')) {
+            imagePreview.src = fileURL;
+            imagePreview.style.display = 'block';
+            videoPreview.style.display = 'none';
+          } else if (file.type.startsWith('video/')) {
+            videoPreview.src = fileURL;
+            videoPreview.style.display = 'block';
+            imagePreview.style.display = 'none';
+          }
+        }
+      });
+      
+      // Drag and drop
+      dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+      
+      dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+      });
+      
+      dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          fileInput.files = files;
+          fileInput.dispatchEvent(new Event('change'));
+        }
+      });
+    </script>
+  </body>
+</html>
