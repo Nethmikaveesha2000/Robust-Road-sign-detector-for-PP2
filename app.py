@@ -1,25 +1,28 @@
 import os
+import sys
 import json
 import cv2
 import numpy as np
 from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
-from werkzeug.utils import secure_filename
 from ultralytics import YOLO
 from tensorflow import keras
 from tensorflow.keras import layers
-import uuid
-from datetime import datetime
 import threading
 import time
 import base64
+
+# =====================================================
+# TERMINAL OUTPUT HELPER
+# =====================================================
+def log_info(message):
+    """Print message to terminal with immediate flush"""
+    print(message, flush=True)
 
 app = Flask(__name__)
 
 # =====================================================
 # CONFIG
 # =====================================================
-UPLOAD_FOLDER = 'static/uploads'
-RESULTS_FOLDER = 'static/results'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'mp4', 'avi', 'mov'}
 
 IMG_SIZE = 224
@@ -32,13 +35,16 @@ YOLO_MODEL_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weigh
 CLASS_MODEL_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\epoch_026.weights.h5"
 CLASS_MAPPING_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\class_mapping.json"
 
-
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
 
-# Create folders if they don't exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESULTS_FOLDER, exist_ok=True)
+# =====================================================
+# HELPER: Convert CV2 image to base64 data URI
+# =====================================================
+def image_to_base64(img):
+    """Convert OpenCV image to base64 data URI for HTML display"""
+    _, buffer = cv2.imencode('.jpg', img)
+    img_base64 = base64.b64encode(buffer).decode('utf-8')
+    return f"data:image/jpeg;base64,{img_base64}"
 
 # =====================================================
 # LOAD MODELS
@@ -161,7 +167,7 @@ def process_frame(frame, verbose=True):
 
     if len(boxes) == 0:
         if verbose:
-            print("[INFO] No road sign detected in frame")
+            log_info("[INFO] No road sign detected in frame")
         return original, original, None, "No detection", 0, None
 
     best_box = max(boxes, key=lambda b: float(b.conf[0]))
@@ -189,11 +195,14 @@ def process_frame(frame, verbose=True):
     best_crop = crop
     best_method = "Original"
 
-    # Terminal logging
+    # Terminal logging for analysis
     if verbose:
-        print(f"\n{'='*50}")
-        print(f"[INFO] Blur Score: {blur_value:.2f}")
-        print(f"[Original] {class_o} | {conf_o:.4f}")
+        log_info("")
+        log_info("=" * 60)
+        log_info("ROAD SIGN DETECTION ANALYSIS")
+        log_info("=" * 60)
+        log_info(f"[INFO] Blur Score: {blur_value:.2f}")
+        log_info(f"[Original] {class_o} | {conf_o:.4f}")
 
     # Enhancements if Blurry
     if blur_value < BLUR_THRESHOLD:
@@ -201,7 +210,7 @@ def process_frame(frame, verbose=True):
         class_s, conf_s = classify_crop(sharpened)
 
         if verbose:
-            print(f"[Sharpen]  {class_s} | {conf_s:.4f}")
+            log_info(f"[Sharpen]  {class_s} | {conf_s:.4f}")
 
         if conf_s > best_conf:
             best_conf = conf_s
@@ -213,7 +222,7 @@ def process_frame(frame, verbose=True):
         class_c, conf_c = classify_crop(clahe_img)
 
         if verbose:
-            print(f"[CLAHE]    {class_c} | {conf_c:.4f}")
+            log_info(f"[CLAHE]    {class_c} | {conf_c:.4f}")
 
         if conf_c > best_conf:
             best_conf = conf_c
@@ -237,9 +246,9 @@ def process_frame(frame, verbose=True):
 
     # Final result logging
     if verbose:
-        print(f"[FINAL] {class_name} | {confidence:.4f} | {status}")
-        print(f"[METHOD] Best result from: {best_method}")
-        print(f"{'='*50}\n")
+        log_info(f"[FINAL] {class_name} | {confidence:.4f} | {status}")
+        log_info(f"[METHOD] Best result from: {best_method}")
+        log_info("=" * 60)
 
     # Visualization
     if status == "Normal":
@@ -288,106 +297,89 @@ def upload():
             return redirect(request.url)
         
         file = request.files['file']
-        input_type = request.form.get('input_type')
+        input_type = request.form.get('input_type', 'image')
         
         if file.filename == '':
             return redirect(request.url)
         
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_")
-            filename = timestamp + str(uuid.uuid4()) + '_' + filename
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
+            # Read file directly into memory - no disk storage
+            file_bytes = file.read()
             
-            return redirect(url_for('process', filename=filename, input_type=input_type))
+            if input_type == 'image':
+                # Decode image from memory
+                nparr = np.frombuffer(file_bytes, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                
+                if img is None:
+                    return "Invalid image file", 400
+                
+                original, detected, crop, class_name, confidence, bbox = process_frame(img)
+                
+                if crop is None:
+                    return render_template('no_detection.html')
+                
+                # Convert images to base64 for display (no disk storage)
+                orig_base64 = image_to_base64(original)
+                detected_base64 = image_to_base64(detected)
+                crop_base64 = image_to_base64(crop)
+                
+                return render_template('results.html',
+                                     original_image=orig_base64,
+                                     detected_image=detected_base64,
+                                     crop_image=crop_base64,
+                                     class_name=class_name,
+                                     confidence=f"{confidence:.2%}",
+                                     input_type='image')
+            
+            elif input_type == 'video':
+                # For video, we need to save temporarily then delete
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp:
+                    tmp.write(file_bytes)
+                    tmp_path = tmp.name
+                
+                try:
+                    cap = cv2.VideoCapture(tmp_path)
+                    results_list = []
+                    frame_count = 0
+                    
+                    while True:
+                        ret, frame = cap.read()
+                        if not ret:
+                            break
+                        
+                        frame_count += 1
+                        if frame_count % 5 != 0:  # Process every 5th frame
+                            continue
+                        
+                        original, detected, crop, class_name, confidence, bbox = process_frame(frame)
+                        
+                        if crop is not None:
+                            # Convert to base64 (no disk storage)
+                            results_list.append({
+                                'frame': frame_count,
+                                'original': image_to_base64(original),
+                                'detected': image_to_base64(detected),
+                                'crop': image_to_base64(crop),
+                                'class_name': class_name,
+                                'confidence': f"{confidence:.2%}"
+                            })
+                        
+                        if len(results_list) >= 5:  # Limit to 5 frames for display
+                            break
+                    
+                    cap.release()
+                finally:
+                    # Clean up temp file
+                    os.unlink(tmp_path)
+                
+                if not results_list:
+                    return render_template('no_detection.html')
+                
+                return render_template('video_results.html', results=results_list, input_type='video')
     
     return render_template('upload.html')
-
-@app.route('/process/<filename>')
-def process(filename):
-    input_type = request.args.get('input_type', 'image')
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    
-    if not os.path.exists(filepath):
-        return "File not found", 404
-    
-    if input_type == 'image':
-        img = cv2.imread(filepath)
-        if img is None:
-            return "Invalid image file", 400
-        
-        original, detected, crop, class_name, confidence, bbox = process_frame(img)
-        
-        if crop is None:
-            return render_template('no_detection.html')
-        
-        # Save results
-        orig_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_original.jpg")
-        detected_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_detected.jpg")
-        crop_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_crop.jpg")
-        
-        cv2.imwrite(orig_path, original)
-        cv2.imwrite(detected_path, detected)
-        cv2.imwrite(crop_path, crop)
-        
-        # Convert to relative paths for templates
-        orig_rel = orig_path.replace('\\', '/')
-        detected_rel = detected_path.replace('\\', '/')
-        crop_rel = crop_path.replace('\\', '/')
-        
-        return render_template('results.html',
-                             original_image=orig_rel,
-                             detected_image=detected_rel,
-                             crop_image=crop_rel,
-                             class_name=class_name,
-                             confidence=f"{confidence:.2%}",
-                             input_type='image')
-    
-    elif input_type == 'video':
-        cap = cv2.VideoCapture(filepath)
-        results_list = []
-        frame_count = 0
-        
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            
-            frame_count += 1
-            if frame_count % 5 != 0:  # Process every 5th frame
-                continue
-            
-            original, detected, crop, class_name, confidence, bbox = process_frame(frame)
-            
-            if crop is not None:
-                # Save frame results
-                orig_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_frame.jpg")
-                detected_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_detected.jpg")
-                crop_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_crop.jpg")
-                
-                cv2.imwrite(orig_path, original)
-                cv2.imwrite(detected_path, detected)
-                cv2.imwrite(crop_path, crop)
-                
-                results_list.append({
-                    'frame': frame_count,
-                    'original': orig_path.replace('\\', '/'),
-                    'detected': detected_path.replace('\\', '/'),
-                    'crop': crop_path.replace('\\', '/'),
-                    'class_name': class_name,
-                    'confidence': f"{confidence:.2%}"
-                })
-            
-            if len(results_list) >= 5:  # Limit to 5 frames for display
-                break
-        
-        cap.release()
-        
-        if not results_list:
-            return render_template('no_detection.html')
-        
-        return render_template('video_results.html', results=results_list, input_type='video')
     
     return "Invalid input type", 400
 
@@ -467,11 +459,14 @@ class VideoCamera:
             best_conf = conf_o
             best_method = "Original"
             
-            # Terminal logging
+            # Terminal logging for webcam
             if verbose:
-                print(f"\n{'='*50}")
-                print(f"[WEBCAM] Blur Score: {blur_value:.2f}")
-                print(f"[Original] {class_o} | {conf_o:.4f}")
+                log_info("")
+                log_info("=" * 60)
+                log_info("WEBCAM ROAD SIGN DETECTION")
+                log_info("=" * 60)
+                log_info(f"[INFO] Blur Score: {blur_value:.2f}")
+                log_info(f"[Original] {class_o} | {conf_o:.4f}")
             
             # Apply enhancements if blurry
             if blur_value < BLUR_THRESHOLD:
@@ -479,7 +474,7 @@ class VideoCamera:
                 class_s, conf_s = classify_crop(sharpened)
                 
                 if verbose:
-                    print(f"[Sharpen]  {class_s} | {conf_s:.4f}")
+                    log_info(f"[Sharpen]  {class_s} | {conf_s:.4f}")
                 
                 if conf_s > best_conf:
                     best_conf = conf_s
@@ -490,7 +485,7 @@ class VideoCamera:
                 class_c, conf_c = classify_crop(clahe_img)
                 
                 if verbose:
-                    print(f"[CLAHE]    {class_c} | {conf_c:.4f}")
+                    log_info(f"[CLAHE]    {class_c} | {conf_c:.4f}")
                 
                 if conf_c > best_conf:
                     best_conf = conf_c
@@ -511,9 +506,9 @@ class VideoCamera:
                 status = "Possibly Unclear"
             
             if verbose:
-                print(f"[FINAL] {class_name} | {confidence:.4f} | {status}")
-                print(f"[METHOD] Best result from: {best_method}")
-                print(f"{'='*50}\n")
+                log_info(f"[FINAL] {class_name} | {confidence:.4f} | {status}")
+                log_info(f"[METHOD] Best result from: {best_method}")
+                log_info("=" * 60)
             
             # Determine color based on confidence
             if confidence >= NORMAL_THRESHOLD:
@@ -618,20 +613,16 @@ def process_webcam_frame():
                 'message': 'No road sign detected'
             })
         
-        # Save results
-        orig_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_original.jpg")
-        detected_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_detected.jpg")
-        crop_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_crop.jpg")
-        
-        cv2.imwrite(orig_path, original)
-        cv2.imwrite(detected_path, detected)
-        cv2.imwrite(crop_path, crop)
+        # Convert to base64 (no disk storage)
+        orig_base64 = image_to_base64(original)
+        detected_base64 = image_to_base64(detected)
+        crop_base64 = image_to_base64(crop)
         
         return jsonify({
             'detected': True,
-            'original': orig_path.replace('\\', '/'),
-            'detected_image': detected_path.replace('\\', '/'),
-            'crop': crop_path.replace('\\', '/'),
+            'original': orig_base64,
+            'detected_image': detected_base64,
+            'crop': crop_base64,
             'class_name': class_name,
             'confidence': f"{confidence:.2%}"
         })
@@ -657,4 +648,12 @@ def results_from_webcam():
                          input_type='webcam')
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Ensure unbuffered output for real-time terminal logging
+    import os
+    os.environ['PYTHONUNBUFFERED'] = '1'
+    
+    log_info("Starting Road Sign Detection Server...")
+    log_info("Server running at: http://localhost:5000")
+    log_info("=" * 60)
+    
+    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
