@@ -871,9 +871,9 @@ NORMAL_THRESHOLD = 0.75
 DAMAGED_THRESHOLD = 0.40
 BLUR_THRESHOLD = 100  # Tune based on camera
 
-YOLO_MODEL_PATH = r"D:\Nethmyy__Research\Research_YOLO_model\Weight\Detect_Model\RoadSignDetector_v22\weights\best.pt"
-CLASS_MODEL_PATH = r"D:\Nethmyy__Research\Research_YOLO_model\Weight\Custom_model2_weights\epoch_026.weights.h5"
-CLASS_MAPPING_PATH = r"D:\Nethmyy__Research\Research_YOLO_model\Weight\Custom_model2_weights\class_mapping.json"
+YOLO_MODEL_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Detect_Model\RoadSignDetector_v22\weights\best.pt"
+CLASS_MODEL_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\epoch_026.weights.h5"
+CLASS_MAPPING_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\class_mapping.json"
 
 # =====================================================
 # LOAD MODELS

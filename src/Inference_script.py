@@ -11,8 +11,8 @@ from tkinter.filedialog import askopenfilename
 # ============================================
 # CONFIG
 # ============================================
-MODEL_PATH = r"D:\Nethmyy__Research\Research_YOLO_model\Weight\epoch_030.weights.h5"
-CLASS_MAPPING_PATH = r"D:\Nethmyy__Research\Research_YOLO_model\Weight\class_mapping.json"
+MODEL_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model_1\epoch_030.weights.h5"
+CLASS_MAPPING_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\class_mapping.json"
 IMG_SIZE = 224
 
 # ============================================
