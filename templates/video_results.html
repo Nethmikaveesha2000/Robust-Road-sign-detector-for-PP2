@@ -114,6 +114,35 @@
       .frame-info-item .value.confidence {
         color: var(--blue);
       }
+      .priority-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+      .priority-4 {
+        background: rgba(255, 77, 79, 0.2);
+        border: 1px solid #ff4d4f;
+        color: #ff4d4f;
+      }
+      .priority-3 {
+        background: rgba(255, 169, 64, 0.2);
+        border: 1px solid #ffa940;
+        color: #ffa940;
+      }
+      .priority-2 {
+        background: rgba(250, 219, 20, 0.2);
+        border: 1px solid #fadb14;
+        color: #fadb14;
+      }
+      .priority-1 {
+        background: rgba(77, 163, 255, 0.2);
+        border: 1px solid #4da3ff;
+        color: #4da3ff;
+      }
       .frame-images {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -201,6 +230,19 @@
               <div class="frame-info-item">
                 <span class="label">Confidence:</span>
                 <span class="value confidence">{{ result.confidence }}</span>
+              </div>
+              <div class="frame-info-item">
+                <span class="priority-badge priority-{{ result.priority }}">
+                  {% if result.priority == 4 %}
+                    🚨 {{ result.priority_label }}
+                  {% elif result.priority == 3 %}
+                    ⚠️ {{ result.priority_label }}
+                  {% elif result.priority == 2 %}
+                    ⚡ {{ result.priority_label }}
+                  {% else %}
+                    ℹ️ {{ result.priority_label }}
+                  {% endif %}
+                </span>
               </div>
             </div>
           </div>

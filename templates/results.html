@@ -124,6 +124,40 @@
       .info-item .value.confidence {
         color: var(--blue);
       }
+      .info-item .value.priority {
+        font-weight: 700;
+      }
+      .priority-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-top: 8px;
+      }
+      .priority-4 {
+        background: rgba(255, 77, 79, 0.2);
+        border: 2px solid #ff4d4f;
+        color: #ff4d4f;
+      }
+      .priority-3 {
+        background: rgba(255, 169, 64, 0.2);
+        border: 2px solid #ffa940;
+        color: #ffa940;
+      }
+      .priority-2 {
+        background: rgba(250, 219, 20, 0.2);
+        border: 2px solid #fadb14;
+        color: #fadb14;
+      }
+      .priority-1 {
+        background: rgba(77, 163, 255, 0.2);
+        border: 2px solid #4da3ff;
+        color: #4da3ff;
+      }
       .cropped-section {
         display: flex;
         flex-direction: column;
@@ -221,7 +255,36 @@
             <div class="label">Confidence Score</div>
             <div class="value confidence">{{ confidence }}</div>
           </div>
+          <div class="info-item">
+            <div class="label">Priority Ranking</div>
+              <div class="value priority" style="color: {{ priority_color|e }};">Level {{ priority }}</div>
+            <div class="priority-badge priority-{{ priority }}">
+              {% if priority == 4 %}
+                🚨 {{ priority_label }}
+              {% elif priority == 3 %}
+                ⚠️ {{ priority_label }}
+              {% elif priority == 2 %}
+                ⚡ {{ priority_label }}
+              {% else %}
+                ℹ️ {{ priority_label }}
+              {% endif %}
+            </div>
+          </div>
         </div>
+        
+        {% if voice_alert %}
+        <!-- Voice Alert Section for High Regulatory Signs -->
+        <div class="voice-alert-section" style="margin-top: 20px; padding: 16px; background: rgba(255, 77, 79, 0.15); border: 1px solid #ff4d4f; border-radius: 10px; text-align: center;">
+          <div style="display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <span style="font-size: 1.5rem;">🔊</span>
+            <span style="color: #ff4d4f; font-weight: 600;">Voice Alert:</span>
+            <span style="color: var(--text);">{{ voice_alert }}</span>
+            <button onclick="speakAlert()" style="background: #ff4d4f; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+              🔈 Play Again
+            </button>
+          </div>
+        </div>
+        {% endif %}
       </div>
       
       <div class="button-group">
@@ -229,5 +292,88 @@
         <a href="{{ url_for('index') }}" class="button secondary">← Back to Home</a>
       </div>
     </div>
+    
+    {% if voice_alert %}
+    <!-- Voice Alert JavaScript -->
+    <script>
+      function speakAlert() {
+        const message = "{{ voice_alert }}";
+        if ('speechSynthesis' in window) {
+          // Cancel any ongoing speech
+          window.speechSynthesis.cancel();
+          
+          const utterance = new SpeechSynthesisUtterance(message);
+          utterance.rate = 0.9;  // Slightly slower for clarity
+          utterance.pitch = 1;
+          utterance.volume = 1;
+          utterance.lang = 'en-US';
+          
+          window.speechSynthesis.speak(utterance);
+        } else {
+          console.log('Speech synthesis not supported');
+        }
+      }
+      
+      // Auto-play voice alert when page loads
+      window.addEventListener('load', function() {
+        // Small delay to ensure page is fully loaded
+        setTimeout(function() {
+          playAlertBeep();
+          setTimeout(speakAlert, 400);  // Voice after beep
+        }, 500);
+      });
+    </script>
+    {% endif %}
+    
+    <!-- Alert Beep Sound for All Detections -->
+    <script>
+      // Create alert beep using Web Audio API
+      function playAlertBeep() {
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          
+          // Create oscillator for beep tone
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          // Beep settings - higher frequency for alert
+          oscillator.frequency.value = 880;  // A5 note
+          oscillator.type = 'sine';
+          
+          // Volume envelope
+          gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          
+          // Play beep
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.3);
+          
+          // Second beep for emphasis
+          setTimeout(function() {
+            const osc2 = audioContext.createOscillator();
+            const gain2 = audioContext.createGain();
+            osc2.connect(gain2);
+            gain2.connect(audioContext.destination);
+            osc2.frequency.value = 1100;  // Higher pitch
+            osc2.type = 'sine';
+            gain2.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            osc2.start(audioContext.currentTime);
+            osc2.stop(audioContext.currentTime + 0.2);
+          }, 150);
+          
+        } catch (e) {
+          console.log('Audio beep not supported:', e);
+        }
+      }
+      
+      // Play beep when page loads (for all detections)
+      window.addEventListener('load', function() {
+        setTimeout(playAlertBeep, 300);
+      });
+    </script>
   </body>
 </html>

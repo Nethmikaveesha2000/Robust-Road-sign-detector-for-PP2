@@ -40,6 +40,122 @@ YOLO_MODEL_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weigh
 CLASS_MODEL_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\epoch_026.weights.h5"
 CLASS_MAPPING_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\class_mapping.json"
 
+# =====================================================
+# SIGN PRIORITY RANKINGS
+# =====================================================
+SIGN_PRIORITY = {
+    # Priority 4 (Critical Regulatory)
+    "Stop": 4,
+    "No entry": 4,
+    "Give way": 4,
+    "Road close for all vehicals": 4,
+
+    # Priority 3 (Regulatory / Mandatory)
+    "Ahead Only": 3,
+    "Ahead or Right Only": 3,
+    "Ahead or left Only": 3,
+    "Compulsory roundabout": 3,
+    "No U Turn": 3,
+    "No turn left": 3,
+    "No turn right": 3,
+    "No Horning": 3,
+    "No parking": 3,
+    "No parking and standing": 3,
+    "No Parking On Odd Days": 3,
+    "No parking on even days": 3,
+    "No heavey vehicals allowed": 3,
+    "Road Closed for busses": 3,
+    "Road closed for moter vehicals": 3,
+    "Road closed for motercycles": 3,
+    "Pass Right Side": 3,
+    "Pass left Side": 3,
+    "bus lane": 3,
+    "overtaking not allowed": 3,
+    "overtaking goods not allowed": 3,
+    "Speed Limit 20 kmph for this area": 3,
+    "Speed Limit 30 kmph for this area": 3,
+    "Speed Limit 50 kmph for this area": 3,
+    "Speed Limit 60 kmph for this area": 3,
+    "Speed Limit 70 kmph for this area": 3,
+    "Speed Limit 80 kmph for this area": 3,
+    "Speed Limit 100 kmph for this area": 3,
+    "Speed Limit 120 kmph for this area": 3,
+
+    # Priority 2 (Warning Signs)
+    "'Y' Junction Ahead 111": 2,
+    "Be careful": 2,
+    "Blind people crossing  ahead": 2,
+    "Children Crossing": 2,
+    "Dangerous Ascent ahead": 2,
+    "Dangerous Descent ahead": 2,
+    "Double Bend to Left": 2,
+    "Double Bend to Right ahead": 2,
+    "Hair Pin Bend to Left  ahead": 2,
+    "Hair Pin Bend to right ahead": 2,
+    "Narrow Bridge ahead": 2,
+    "Right Bend Ahead": 2,
+    "left  Bend Ahead": 2,
+    "Road Narrows Ahead": 2,
+    "Road Narrows on left  Ahead": 2,
+    "Road Narrows on the right": 2,
+    "Road Work Ahead": 2,
+    "Roundabout Ahead": 2,
+    "School area ahead": 2,
+    "Slippery Road Ahead": 2,
+    "T junction ahead": 2,
+    "Traffic Signals Ahead": 2,
+    "Tunnel Ahead": 2,
+    "Turn left ahead": 2,
+    "Two-way Traffic Ahead": 2,
+    "Uneven Road Ahead": 2,
+    "animal crossing": 2,
+    "bump ahead": 2,
+    "cross road ahead": 2,
+    "falling rock": 2,
+    "pedestrian crossing": 2,
+
+    # Priority 1 (Informational / Guidance)
+    "Near Hospital": 1,
+    "Train station ahead": 1,
+    "Road Ahead on a Quay": 1,
+    "overtaking allowed": 1
+}
+
+PRIORITY_LABELS = {
+    4: "High Regulatory Road Sign",
+    3: "Medium Regulatory Road Sign",
+    2: "Warning Road Sign",
+    1: "Informational Road Sign"
+}
+
+PRIORITY_COLORS = {
+    4: "#ff4d4f",  # Red
+    3: "#ffa940",  # Orange
+    2: "#fadb14",  # Yellow
+    1: "#4da3ff"   # Blue
+}
+
+# Voice alert messages for high regulatory signs (priority 4)
+VOICE_ALERTS = {
+    "Stop": "Stop road sign ahead. Please stop your vehicle.",
+    "No entry": "No entry road sign ahead. Entry is prohibited.",
+    "Give way": "Give way road sign ahead. Yield to other traffic.",
+    "Road close for all vehicals": "Road closed ahead. All vehicles prohibited."
+}
+
+def get_sign_priority(class_name):
+    """Get priority ranking for a detected sign"""
+    priority = SIGN_PRIORITY.get(class_name, 0)
+    label = PRIORITY_LABELS.get(priority, "Unknown")
+    color = PRIORITY_COLORS.get(priority, "#888888")
+    return priority, label, color
+
+def get_voice_alert(class_name, priority):
+    """Get voice alert message for high regulatory signs"""
+    if priority == 4:
+        return VOICE_ALERTS.get(class_name, f"{class_name} road sign ahead. High priority alert.")
+    return None
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
 
@@ -355,12 +471,20 @@ def process(filename):
         detected_rel = detected_path.replace('\\', '/')
         crop_rel = crop_path.replace('\\', '/')
         
+        # Get priority ranking and voice alert
+        priority, priority_label, priority_color = get_sign_priority(class_name)
+        voice_alert = get_voice_alert(class_name, priority)
+        
         return render_template('results.html',
                              original_image=orig_rel,
                              detected_image=detected_rel,
                              crop_image=crop_rel,
                              class_name=class_name,
                              confidence=f"{confidence:.2%}",
+                             priority=priority,
+                             priority_label=priority_label,
+                             priority_color=priority_color,
+                             voice_alert=voice_alert,
                              input_type='image')
     
     elif input_type == 'video':
@@ -389,13 +513,19 @@ def process(filename):
                 cv2.imwrite(detected_path, detected)
                 cv2.imwrite(crop_path, crop)
                 
+                # Get priority ranking
+                priority, priority_label, priority_color = get_sign_priority(class_name)
+                
                 results_list.append({
                     'frame': frame_count,
                     'original': orig_path.replace('\\', '/'),
                     'detected': detected_path.replace('\\', '/'),
                     'crop': crop_path.replace('\\', '/'),
                     'class_name': class_name,
-                    'confidence': f"{confidence:.2%}"
+                    'confidence': f"{confidence:.2%}",
+                    'priority': priority,
+                    'priority_label': priority_label,
+                    'priority_color': priority_color
                 })
             
             if len(results_list) >= 5:  # Limit to 5 frames for display
@@ -645,13 +775,19 @@ def process_webcam_frame():
         detected_base64 = image_to_base64(detected)
         crop_base64 = image_to_base64(crop)
         
+        # Get priority ranking
+        priority, priority_label, priority_color = get_sign_priority(class_name)
+        
         return jsonify({
             'detected': True,
             'original': orig_base64,
             'detected_image': detected_base64,
             'crop': crop_base64,
             'class_name': class_name,
-            'confidence': f"{confidence:.2%}"
+            'confidence': f"{confidence:.2%}",
+            'priority': priority,
+            'priority_label': priority_label,
+            'priority_color': priority_color
         })
         
     except Exception as e:
@@ -666,12 +802,20 @@ def results_from_webcam():
     class_name = request.args.get('class_name')
     confidence = request.args.get('confidence')
     
+    # Get priority ranking and voice alert
+    priority, priority_label, priority_color = get_sign_priority(class_name)
+    voice_alert = get_voice_alert(class_name, priority)
+    
     return render_template('results.html',
                          original_image=original,
                          detected_image=detected,
                          crop_image=crop,
                          class_name=class_name,
                          confidence=confidence,
+                         priority=priority,
+                         priority_label=priority_label,
+                         priority_color=priority_color,
+                         voice_alert=voice_alert,
                          input_type='webcam')
 
 if __name__ == '__main__':
