@@ -457,15 +457,24 @@ def process(filename):
         if crop is None:
             return render_template('no_detection.html')
         
-        # Save results
+        # Remove previous result images before saving new ones
+        for fname in os.listdir(RESULTS_FOLDER):
+            fpath = os.path.join(RESULTS_FOLDER, fname)
+            try:
+                if os.path.isfile(fpath):
+                    os.remove(fpath)
+            except Exception as e:
+                print(f"Error deleting file {fpath}: {e}")
+
+        # Save new results
         orig_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_original.jpg")
         detected_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_detected.jpg")
         crop_path = os.path.join(RESULTS_FOLDER, f"{uuid.uuid4()}_crop.jpg")
-        
+
         cv2.imwrite(orig_path, original)
         cv2.imwrite(detected_path, detected)
         cv2.imwrite(crop_path, crop)
-        
+
         # Convert to relative paths for templates
         orig_rel = orig_path.replace('\\', '/')
         detected_rel = detected_path.replace('\\', '/')
