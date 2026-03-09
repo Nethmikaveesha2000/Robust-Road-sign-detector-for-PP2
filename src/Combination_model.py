@@ -2442,6 +2442,533 @@
 
 
 
+# import cv2
+# import json
+# import numpy as np
+# from ultralytics import YOLO
+# import tkinter as tk
+# from tkinter import filedialog
+# from collections import deque, Counter
+
+# from tensorflow import keras
+# from tensorflow.keras import layers
+# from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+
+# # ============================================
+# # CONFIG
+# # ============================================
+
+# IMG_SIZE = 224
+# MARGIN_RATIO = 0.15
+
+# NORMAL_THRESHOLD = 0.75
+# DAMAGED_THRESHOLD = 0.40
+# BLUR_THRESHOLD = 100
+
+# # ============================================
+# # TEMPORAL FRAME VOTING CONFIG
+# # ============================================
+
+# FRAME_BUFFER = 10
+# MIN_VOTES = 7
+
+# prediction_buffer = deque(maxlen=FRAME_BUFFER)
+# stable_prediction = None
+
+# YOLO_DETECT_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Detect_Model\RoadSignDetector_v22\weights\best.pt"
+
+# MOBILENET_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\mobilenet_weights\Mobilenetv2_Retrain_weight\phase2_epoch_015.weights.h5"
+
+# CUSTOM_MODEL_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\epoch_026.weights.h5"
+
+# YOLO_CLASSIFIER_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\YOLO8\YOLOv8_Classifier\weights\best.pt"
+
+# CLASS_MAPPING_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\class_mapping.json"
+
+
+# # ============================================
+# # LOAD YOLO DETECTION
+# # ============================================
+
+# detector = YOLO(YOLO_DETECT_PATH)
+# print("✅ YOLO Detection Model Loaded")
+
+
+# # ============================================
+# # LOAD CLASS MAPPING
+# # ============================================
+
+# with open(CLASS_MAPPING_PATH, "r") as f:
+#     class_indices = json.load(f)
+
+# index_to_class = {v: k for k, v in class_indices.items()}
+# NUM_CLASSES = len(class_indices)
+
+
+# # ============================================
+# # MOBILENET MODEL
+# # ============================================
+
+# def build_mobilenet():
+
+#     base_model = keras.applications.MobileNetV2(
+#         input_shape=(IMG_SIZE, IMG_SIZE, 3),
+#         include_top=False,
+#         weights=None
+#     )
+
+#     x = base_model.output
+#     x = layers.GlobalAveragePooling2D()(x)
+#     x = layers.Dense(256, activation='relu')(x)
+#     x = layers.Dropout(0.5)(x)
+
+#     outputs = layers.Dense(NUM_CLASSES, activation='softmax')(x)
+
+#     return keras.Model(inputs=base_model.input, outputs=outputs)
+
+
+# mobilenet_model = build_mobilenet()
+# mobilenet_model.load_weights(MOBILENET_PATH)
+
+# print("✅ MobileNetV2 Loaded")
+
+
+# # ============================================
+# # CUSTOM MODEL ARCHITECTURE
+# # ============================================
+
+# def conv_block(x, filters, stride=1):
+
+#     shortcut = x
+
+#     x = layers.Conv2D(filters,(3,3),strides=stride,padding='same',use_bias=False)(x)
+#     x = layers.BatchNormalization()(x)
+#     x = layers.ReLU()(x)
+
+#     x = layers.Conv2D(filters,(3,3),padding='same',use_bias=False)(x)
+#     x = layers.BatchNormalization()(x)
+
+#     if stride != 1 or shortcut.shape[-1] != filters:
+#         shortcut = layers.Conv2D(filters,(1,1),strides=stride,padding='same',use_bias=False)(shortcut)
+#         shortcut = layers.BatchNormalization()(shortcut)
+
+#     x = layers.Add()([x,shortcut])
+#     x = layers.ReLU()(x)
+
+#     return x
+
+
+# def depthwise_block(x, filters, stride=1):
+
+#     shortcut = x
+
+#     x = layers.DepthwiseConv2D((3,3),strides=stride,padding='same',use_bias=False)(x)
+#     x = layers.BatchNormalization()(x)
+#     x = layers.ReLU()(x)
+
+#     x = layers.Conv2D(filters,(1,1),padding='same',use_bias=False)(x)
+#     x = layers.BatchNormalization()(x)
+
+#     if stride == 1 and shortcut.shape[-1] == filters:
+#         x = layers.Add()([x,shortcut])
+
+#     x = layers.ReLU()(x)
+
+#     return x
+
+
+# def build_custom():
+
+#     inputs = keras.Input(shape=(224,224,3))
+
+#     x = layers.Conv2D(32,(3,3),strides=2,padding='same',use_bias=False)(inputs)
+#     x = layers.BatchNormalization()(x)
+#     x = layers.ReLU()(x)
+
+#     x = conv_block(x,64)
+#     x = conv_block(x,64)
+
+#     x = conv_block(x,128,stride=2)
+#     x = conv_block(x,128)
+
+#     x = depthwise_block(x,256,stride=2)
+#     x = depthwise_block(x,256)
+
+#     x = depthwise_block(x,512,stride=2)
+#     x = depthwise_block(x,512)
+
+#     x = layers.GlobalAveragePooling2D()(x)
+#     x = layers.BatchNormalization()(x)
+#     x = layers.Dropout(0.6)(x)
+
+#     x = layers.Dense(512,activation='relu')(x)
+#     x = layers.BatchNormalization()(x)
+#     x = layers.Dropout(0.5)(x)
+
+#     outputs = layers.Dense(NUM_CLASSES,activation='softmax')(x)
+
+#     return keras.Model(inputs,outputs)
+
+
+# custom_model = build_custom()
+# custom_model.load_weights(CUSTOM_MODEL_PATH)
+
+# print("✅ Custom Model Loaded")
+
+
+# # ============================================
+# # YOLOv8 CLASSIFIER
+# # ============================================
+
+# yolo_classifier = YOLO(YOLO_CLASSIFIER_PATH)
+
+# print("✅ YOLOv8 Classifier Loaded")
+
+
+# # ============================================
+# # IMAGE QUALITY FUNCTIONS
+# # ============================================
+
+# def blur_score(image):
+
+#     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     return cv2.Laplacian(gray, cv2.CV_64F).var()
+
+
+# def sharpen_image(image):
+
+#     gaussian = cv2.GaussianBlur(image,(9,9),10)
+#     return cv2.addWeighted(image,1.5,gaussian,-0.5,0)
+
+
+# def apply_clahe(image):
+
+#     lab = cv2.cvtColor(image,cv2.COLOR_BGR2LAB)
+
+#     l,a,b = cv2.split(lab)
+
+#     clahe = cv2.createCLAHE(clipLimit=2.0,tileGridSize=(8,8))
+
+#     cl = clahe.apply(l)
+
+#     merged = cv2.merge((cl,a,b))
+
+#     return cv2.cvtColor(merged,cv2.COLOR_LAB2BGR)
+
+
+# # ============================================
+# # MODEL PREDICTIONS
+# # ============================================
+
+# def mobilenet_predict(crop):
+
+#     img = cv2.resize(crop,(IMG_SIZE,IMG_SIZE))
+#     img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+#     img = preprocess_input(img)
+
+#     img = np.expand_dims(img,axis=0)
+
+#     pred = mobilenet_model.predict(img,verbose=0)[0]
+
+#     return pred
+
+
+# def custom_predict(crop):
+
+#     img = cv2.resize(crop,(IMG_SIZE,IMG_SIZE))
+#     img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+#     img = img.astype("float32")/255.0
+
+#     img = np.expand_dims(img,axis=0)
+
+#     pred = custom_model.predict(img,verbose=0)[0]
+
+#     return pred
+
+
+# def yolo_predict(crop):
+
+#     img = cv2.resize(crop,(IMG_SIZE,IMG_SIZE))
+
+#     results = yolo_classifier.predict(img,verbose=False)
+
+#     probs = results[0].probs.data.cpu().numpy()
+
+#     return probs
+
+
+# # ============================================
+# # ENSEMBLE
+# # ============================================
+
+# def evaluate_image_version(img,name):
+
+#     pred_m = mobilenet_predict(img)
+#     pred_c = custom_predict(img)
+#     pred_y = yolo_predict(img)
+
+#     class_m = index_to_class[np.argmax(pred_m)]
+#     conf_m = float(np.max(pred_m))
+
+#     class_c = index_to_class[np.argmax(pred_c)]
+#     conf_c = float(np.max(pred_c))
+
+#     class_y = index_to_class[np.argmax(pred_y)]
+#     conf_y = float(np.max(pred_y))
+
+#     ensemble = (pred_m + pred_c + pred_y) / 3
+
+#     class_e = index_to_class[np.argmax(ensemble)]
+#     conf_e = float(np.max(ensemble))
+
+#     print(f"\n---- {name} ----")
+#     print(f"MobileNetV2 : {class_m} | {conf_m:.4f}")
+#     print(f"CustomModel2: {class_c} | {conf_c:.4f}")
+#     print(f"YOLOv8      : {class_y} | {conf_y:.4f}")
+#     print(f"Ensemble    : {class_e} | {conf_e:.4f}")
+
+#     return class_e, conf_e
+
+
+# # ============================================
+# # TEMPORAL FRAME VOTING
+# # ============================================
+
+# def temporal_voting(predicted_class):
+
+#     global stable_prediction
+
+#     prediction_buffer.append(predicted_class)
+
+#     # If buffer not full yet
+#     if len(prediction_buffer) < FRAME_BUFFER:
+#         print("[TEMPORAL] Buffer not full yet...")
+#         return None
+
+#     counts = Counter(prediction_buffer)
+
+#     best_class, votes = counts.most_common(1)[0]
+
+#     print("\n[TEMPORAL VOTING]")
+#     print("Buffer:", list(prediction_buffer))
+#     print("Votes :", counts)
+
+#     if votes >= MIN_VOTES:
+#         stable_prediction = best_class
+#         print(f"[CONFIRMED SIGN] {best_class}")
+#         return best_class
+
+#     return None
+
+# # ============================================
+# # PROCESS FRAME
+# # ============================================
+
+# def process_frame(frame):
+
+#     original = frame.copy()
+
+#     results = detector(frame,conf=0.25)
+#     boxes = results[0].boxes
+
+#     if len(boxes)==0:
+#         return original,original,None
+
+#     best_box = max(boxes,key=lambda b:float(b.conf[0]))
+
+#     x1,y1,x2,y2 = best_box.xyxy[0].cpu().numpy().astype(int)
+
+#     crop = frame[y1:y2,x1:x2]
+
+#     print("\n----------------------------------")
+
+#     blur_value = blur_score(crop)
+
+#     print(f"[INFO] Blur Score: {blur_value:.2f}")
+
+#     results_list = []
+
+#     class_o,conf_o = evaluate_image_version(crop,"Original")
+#     results_list.append(("Original",crop,class_o,conf_o))
+
+#     sharpened = sharpen_image(crop)
+#     class_s,conf_s = evaluate_image_version(sharpened,"Sharpen")
+#     results_list.append(("Sharpen",sharpened,class_s,conf_s))
+
+#     clahe_img = apply_clahe(crop)
+#     class_c,conf_c = evaluate_image_version(clahe_img,"CLAHE")
+#     results_list.append(("CLAHE",clahe_img,class_c,conf_c))
+
+#     best = max(results_list,key=lambda x:x[3])
+
+#     version,best_crop,class_name,confidence = best
+
+#     # ============================================
+#     # APPLY TEMPORAL FRAME VOTING
+#     # ============================================
+
+#     confirmed_class = temporal_voting(class_name)
+
+#     if confirmed_class is not None:
+#         display_class = confirmed_class
+#     else:
+#         display_class = "Detecting..."
+
+#     print(f"\n[SELECTED VERSION] {version}")
+
+#     if confidence >= NORMAL_THRESHOLD:
+#         status="Normal"
+#     elif confidence < DAMAGED_THRESHOLD:
+#         status="Damaged"
+#     else:
+#         status="Possibly unclear"
+
+#     print("\n[FINAL RESULT]")
+#     print(f"Class      : {class_name}")
+#     print(f"Confidence : {confidence:.4f}")
+#     print(f"Status     : {status}")
+#     print("----------------------------------")
+
+#     color = (0,255,0) if status=="Normal" else (0,0,255)
+
+#     detected_img = original.copy()
+
+#     cv2.rectangle(detected_img,(x1,y1),(x2,y2),color,3)
+
+#     cv2.putText(
+#         detected_img,
+#         f"{display_class} ({confidence:.2f})",
+#         (x1,y1-10),
+#         cv2.FONT_HERSHEY_SIMPLEX,
+#         0.8,
+#         color,
+#         2
+#     )
+
+#     crop_display = best_crop.copy()
+
+#     cv2.putText(
+#         crop_display,
+#         f"{class_name} - {status}",
+#         (10,30),
+#         cv2.FONT_HERSHEY_SIMPLEX,
+#         1,
+#         color,
+#         2
+#     )
+
+#     return original,detected_img,crop_display
+
+
+# # ============================================
+# # INPUT MODE
+# # ============================================
+
+# print("\nChoose Input Type:")
+# print("1 - Image")
+# print("2 - Video")
+# print("3 - Webcam")
+
+# choice=input("Enter choice (1/2/3): ")
+
+# if choice in ["1","2"]:
+
+#     root=tk.Tk()
+#     root.withdraw()
+
+#     path=filedialog.askopenfilename(title="Select File")
+
+#     root.destroy()
+
+#     if not path:
+#         exit()
+
+
+# if choice=="1":
+
+#     img=cv2.imread(path)
+
+#     orig,detected,crop=process_frame(img)
+
+#     if crop is None:
+#         exit()
+
+#     combined=np.hstack([
+#         cv2.resize(orig,(400,400)),
+#         cv2.resize(detected,(400,400)),
+#         cv2.resize(crop,(400,400))
+#     ])
+
+#     cv2.imshow("Detection Pipeline",combined)
+#     cv2.waitKey(0)
+#     cv2.destroyAllWindows()
+
+
+# elif choice=="2":
+
+#     cap=cv2.VideoCapture(path)
+
+#     while True:
+
+#         ret,frame=cap.read()
+
+#         if not ret:
+#             break
+
+#         orig,detected,crop=process_frame(frame)
+
+#         if crop is not None:
+
+#             combined=np.hstack([
+#                 cv2.resize(orig,(300,300)),
+#                 cv2.resize(detected,(300,300)),
+#                 cv2.resize(crop,(300,300))
+#             ])
+
+#             cv2.imshow("Detection Pipeline",combined)
+
+#         if cv2.waitKey(1)&0xFF==ord('q'):
+#             break
+
+#     cap.release()
+#     cv2.destroyAllWindows()
+
+
+# elif choice=="3":
+
+#     cap=cv2.VideoCapture(0)
+
+#     while True:
+
+#         ret,frame=cap.read()
+
+#         if not ret:
+#             break
+
+#         orig,detected,crop=process_frame(frame)
+
+#         if crop is not None:
+
+#             combined=np.hstack([
+#                 cv2.resize(orig,(300,300)),
+#                 cv2.resize(detected,(300,300)),
+#                 cv2.resize(crop,(300,300))
+#             ])
+
+#             cv2.imshow("Live Detection",combined)
+
+#         if cv2.waitKey(1)&0xFF==ord('q'):
+#             break
+
+#     cap.release()
+#     cv2.destroyAllWindows()
+
+
+
+
+#add video detection yolov8s part ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 import cv2
 import json
 import numpy as np
@@ -2485,6 +3012,7 @@ YOLO_CLASSIFIER_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\
 
 CLASS_MAPPING_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\Weights\Custom_model2_weights\class_mapping.json"
 
+YOLO_VIDEO_PATH = r"D:\Nethmyy__Research\Research_YOLO_model\Weight\Video_weight\yolov8s.pt"
 
 # ============================================
 # LOAD YOLO DETECTION
@@ -2493,7 +3021,8 @@ CLASS_MAPPING_PATH = r"D:\Nethmyy__Research\Robust-Road-sign-detector-for-PP2\We
 detector = YOLO(YOLO_DETECT_PATH)
 print("✅ YOLO Detection Model Loaded")
 
-
+video_detector = YOLO(YOLO_VIDEO_PATH)
+print("✅ YOLOv8s Video Detector Loaded")
 # ============================================
 # LOAD CLASS MAPPING
 # ============================================
@@ -2915,17 +3444,46 @@ elif choice=="2":
         if not ret:
             break
 
-        orig,detected,crop=process_frame(frame)
+        # ==========================================
+        # YOLOv8s PRETRAINED DETECTION
+        # ==========================================
 
-        if crop is not None:
+        results = video_detector(frame,conf=0.25)
 
-            combined=np.hstack([
-                cv2.resize(orig,(300,300)),
-                cv2.resize(detected,(300,300)),
-                cv2.resize(crop,(300,300))
-            ])
+        boxes = results[0].boxes
 
-            cv2.imshow("Detection Pipeline",combined)
+        crop=None
+        detected_img=frame.copy()
+        orig=frame.copy()
+
+        if len(boxes)>0:
+
+            for box in boxes:
+
+                class_id=int(box.cls[0])
+                class_name=video_detector.names[class_id]
+
+                # detect only STOP SIGN
+                if class_name=="stop sign":
+
+                    x1,y1,x2,y2 = box.xyxy[0].cpu().numpy().astype(int)
+
+                    crop = frame[y1:y2,x1:x2]
+
+                    # send crop to your NORMAL PIPELINE
+                    orig2,detected2,crop2 = process_frame(frame)
+
+                    if crop2 is not None:
+
+                        combined=np.hstack([
+                            cv2.resize(orig2,(300,300)),
+                            cv2.resize(detected2,(300,300)),
+                            cv2.resize(crop2,(300,300))
+                        ])
+
+                        cv2.imshow("Detection Pipeline",combined)
+
+                    break
 
         if cv2.waitKey(1)&0xFF==ord('q'):
             break
